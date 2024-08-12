@@ -1,7 +1,10 @@
+from statistics import pvariance
+
 import cv2
 import os
 from typing import Optional
 import numpy as np
+import pyexiv2
 
 
 class PrincipalPoint:
@@ -19,6 +22,8 @@ class Image:
         self.name = os.path.splitext(self.filename)[0]
         self.original_image = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
         self.image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+
+        self.exif_image = pyexiv2.Image(file_path)
 
         self.principal_point: Optional[PrincipalPoint] = None
         self.original_image_cropped = None
@@ -51,6 +56,11 @@ class Image:
     def save_original_image_cropped(self, save_file_path: str):
         cv2.imwrite(save_file_path, self.original_image_cropped,
                     [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+
+        image = pyexiv2.Image(save_file_path)
+        self.exif_image.copy_to_another_image(image, exif=True, iptc=True, xmp=True, comment=False, icc=False,
+                                              thumbnail=False)
+        image.close()
 
     def display_original_image(self, scale_percent=4):
         self._display_image(self.original_image, scale_percent)

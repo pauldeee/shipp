@@ -18,26 +18,27 @@ def process_image_set(images_directory, output_directory, x_crop, y_crop):
 
     # start the processing
     for image_path in tqdm(image_filepaths, desc="processing images"):
-        image = Image(image_path)
+        if '.tif' in image_path:
+            image = Image(image_path)
 
-        # try all fiducial templates on the image
-        results = find_fiducials(image.image, fiducial_templates)
+            # try all fiducial templates on the image
+            results = find_fiducials(image.image, fiducial_templates)
 
-        # get the best scoring result
-        best_matching_result = get_top_scores(results)
-        tqdm.write(f"Best matching result: {best_matching_result}")
-        # get the points for the fiducial markers
-        fiducial_points = get_fiducial_points(best_matching_result)
+            # get the best scoring result
+            best_matching_result = get_top_scores(results)
+            tqdm.write(f"\nBest matching result:\n{best_matching_result}\n")
+            # get the points for the fiducial markers
+            fiducial_points = get_fiducial_points(best_matching_result)
 
-        # get the principle point
-        image.principal_point = compute_principal_point(fiducial_points)
+            # get the principle point
+            image.principal_point = compute_principal_point(fiducial_points)
+            tqdm.write(f"{image.principal_point}\n")
+            # crop the image with the principal point as the center
+            image.crop_original(x_crop, y_crop)
 
-        # crop the image with the principal point as the center
-        image.crop_original(x_crop, y_crop)
-
-        save_file = os.path.join(output_directory, image.name + '_cropped.tif')
-        tqdm.write(f"saving image {save_file}")
-        image.save_original_image_cropped(save_file)
+            save_file = os.path.join(output_directory, image.name + '_cropped.tif')
+            tqdm.write(f"Saving image: {save_file}\n")
+            image.save_original_image_cropped(save_file)
 
 
 def get_filepaths_from_directory(directory):
