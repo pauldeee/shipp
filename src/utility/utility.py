@@ -1,12 +1,12 @@
 import os
 from tqdm import tqdm
-from src.image import Image, PrincipalPoint
+from src.image import Image, PrincipalPoint, Point
 from src.fiducial import FiducialTemplate
 import cv2
 import numpy as np
 
 
-def process_image_set(images_directory, output_directory, x_crop, y_crop):
+def process_image_set(images_directory, output_directory, x_crop, y_crop, output_thumbnails=False):
     # load image paths
     image_filepaths = get_filepaths_from_directory(images_directory)
 
@@ -29,6 +29,7 @@ def process_image_set(images_directory, output_directory, x_crop, y_crop):
             tqdm.write(f"\nBest matching result:\n{best_matching_result}\n")
             # get the points for the fiducial markers
             fiducial_points = get_fiducial_points(best_matching_result)
+            image.fiducial_points = fiducial_points
 
             # get the principle point
             image.principal_point = compute_principal_point(fiducial_points)
@@ -39,6 +40,11 @@ def process_image_set(images_directory, output_directory, x_crop, y_crop):
             save_file = os.path.join(output_directory, image.name + '_cropped.tif')
             tqdm.write(f"Saving image: {save_file}\n")
             image.save_original_image_cropped(save_file)
+
+            if output_thumbnails:
+                save_thumbnails_path = os.path.join(output_directory, 'fiducial_thumbnails',
+                                                    image.name + '_thumbnail.tif')
+                image.save_fiducial_data_thumbnail(save_thumbnails_path)
 
 
 def get_filepaths_from_directory(directory):
@@ -176,29 +182,29 @@ def get_fiducial_points(top_results):
       }
     """
     # Initialize variables for x and y values
-    x_top = y_left = y_right = x_bottom = None
+    top = left = right = bottom = None
 
+    points = []
     # Extract the necessary x and y values from the top results
     for year, position, center_x, center_y, match_score in top_results:
         if position == "top":
-            x_top = center_x
+            top = Point(center_x, center_y)
         elif position == "right":
-            y_right = center_y
+            right = Point(center_x, center_y)
         elif position == "left":
-            y_left = center_y
+            left = Point(center_x, center_y)
         elif position == "bottom":
-            x_bottom = center_x
-
+            bottom = Point(center_x, center_y)
     # Ensure all necessary values were found
-    if x_top is None or y_right is None or y_left is None or x_bottom is None:
+    if bottom is None or right is None or left is None or bottom is None:
         raise ValueError("Not all necessary fiducial positions were found in the top results.")
 
     # Return the relevant points
     return {
-        "top": x_top,
-        "bottom": x_bottom,
-        "left": y_left,
-        "right": y_right
+        "top": top,
+        "bottom": bottom,
+        "left": left,
+        "right": right
     }
 
 
@@ -218,13 +224,13 @@ def compute_principal_point(fiducial_points):
     Returns:
     - A tuple representing the principal point (center_x, center_y)
     """
-    x_top = fiducial_points.get("top")
-    x_bottom = fiducial_points.get("bottom")
-    y_left = fiducial_points.get("left")
-    y_right = fiducial_points.get("right")
+    top = fiducial_points.get("top")
+    bottom = fiducial_points.get("bottom")
+    left = fiducial_points.get("left")
+    right = fiducial_points.get("right")
 
-    # Compute the average x and y coordinates
-    center_x = round((x_top + x_bottom) / 2)
-    center_y = round((y_left + y_right) / 2)
+    # Calculate the center of the quadrilateral by averaging the x and y coordinates
+    center_x = round((top.x + bottom.x + left.x + right.x) / 4)
+    center_y = round((top.y + bottom.y + left.y + right.y) / 4)
 
     return PrincipalPoint(center_x, center_y)

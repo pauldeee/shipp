@@ -1,2 +1,26 @@
-.venv/
-.idea/
+# Ignore specific IDE/editor files
+*.idea/
+*.vscode/
+
+# Ignore Python bytecode
+*/__pycache__/*
+*.py[cod]
+
+# Other Python-related ignores
+*.pyo
+*.pyd
+.Python
+
+# Ignore virtual environments
+venv/
+env/
+
+
+
+# ignore test data
+test_images/08F-146.tif
+test_images/266-038.tif
+test_output/08F-146_cropped.tif
+test_output/266-038_cropped.tif
+test_output/fiducial_thumbnails/08F-146_thumbnail.tif
+test_output/fiducial_thumbnails/266-038_thumbnail.tif

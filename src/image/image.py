@@ -7,11 +7,16 @@ import numpy as np
 import pyexiv2
 
 
-class PrincipalPoint:
+class Point:
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
+    def __str__(self):
+        return f"Point(x={self.x}, y={self.y}"
+
+
+class PrincipalPoint(Point):
     def __str__(self):
         return f"PrincipalPoint(x={self.x}, y={self.y})"
 
@@ -27,7 +32,7 @@ class Image:
 
         self.principal_point: Optional[PrincipalPoint] = None
         self.original_image_cropped = None
-        self.fiducial_results = None
+        self.fiducial_points = None
 
     def set_principal_point(self, x, y):
         self.principal_point = PrincipalPoint(x, y)
@@ -68,11 +73,54 @@ class Image:
     def display_original_image_cropped(self, scale_percent=4):
         self._display_image(self.original_image_cropped, scale_percent)
 
+    def save_fiducial_data_thumbnail(self, save_file_path):
+        image = self.image.copy()
+
+        # Scale the copied image to 5% of its original size
+        scale_percent = 10  # percentage of the original size
+        width = int(image.shape[1] * scale_percent / 100)
+        height = int(image.shape[0] * scale_percent / 100)
+        dim = (width, height)
+
+        image = self.draw_line(image, self.fiducial_points.get("top").x, self.fiducial_points.get("top").y,
+                               self.fiducial_points.get("bottom").x, self.fiducial_points.get("bottom").y)
+
+        image = self.draw_line(image, self.fiducial_points.get("left").x, self.fiducial_points.get("left").y,
+                               self.fiducial_points.get("right").x, self.fiducial_points.get("right").y)
+
+        # Resize the image
+        image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+
+        cv2.imwrite(save_file_path, image)
+
+        # cv2.imshow('Scaled Image with Lines', image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+    @staticmethod
+    def draw_line(image, x1, y1, x2, y2, color=(0, 0, 0), thickness=6):
+        """
+        Draws a line on an image.
+
+        Parameters:
+        - image: The image on which to draw the line.
+        - x1, y1: Coordinates of the starting point of the line.
+        - x2, y2: Coordinates of the ending point of the line.
+        - color: Color of the line (BGR tuple, e.g., (255, 0, 0) for blue).
+        - thickness: Thickness of the line in pixels.
+
+        Returns:
+        - The image with the line drawn on it.
+        """
+        # Draw the line on the image
+        cv2.line(image, (x1, y1), (x2, y2), color, thickness)
+
+        return image
+
     @staticmethod
     def _display_image(image, scale_percent):
         """
         Resizes and displays the image based on the scale percentage.
-
         Parameters:
         - image: The input image to be resized and displayed.
         - scale_percent: The percentage to scale the image (default is 4%).
