@@ -26,7 +26,8 @@ class Image:
         self.filename = os.path.basename(file_path)
         self.name = os.path.splitext(self.filename)[0]
         self.original_image = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
-        self.image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+        # self.image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+        self.image = (self.original_image / 256).astype('uint8')
 
         self.exif_image = pyexiv2.Image(file_path)
 
@@ -90,6 +91,10 @@ class Image:
 
         # Resize the image
         image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+
+        directory = os.path.dirname(save_file_path)
+        os.makedirs(directory, exist_ok=True)
+
 
         cv2.imwrite(save_file_path, image)
 

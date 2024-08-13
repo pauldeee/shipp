@@ -1,12 +1,46 @@
 import os
-from tqdm import tqdm
-from src.image import Image, PrincipalPoint, Point
-from src.fiducial import FiducialTemplate
+from functools import partial
+from multiprocessing import Pool
+
 import cv2
-import numpy as np
+from tqdm import tqdm
+
+from src.fiducial import FiducialTemplate
+from src.image import Image, PrincipalPoint, Point
 
 
-def process_image_set(images_directory, output_directory, x_crop, y_crop, output_thumbnails=False):
+def process_single_image(image_path, fiducial_templates, x_crop, y_crop, output_directory, output_thumbnails):
+    if '.tif' in image_path:
+        image = Image(image_path)
+
+        # try all fiducial templates on the image
+        results = find_fiducials(image.image, fiducial_templates)
+
+        # get the best scoring result
+        best_matching_result = get_top_scores(results)
+        print(f"\nBest matching result:\n{best_matching_result}\n")
+
+        # get the points for the fiducial markers
+        fiducial_points = get_fiducial_points(best_matching_result)
+        image.fiducial_points = fiducial_points
+
+        # get the principal point
+        image.principal_point = compute_principal_point(fiducial_points)
+        print(f"{image.principal_point}\n")
+
+        # crop the image with the principal point as the center
+        image.crop_original(x_crop, y_crop)
+
+        save_file = os.path.join(output_directory, image.name + '_cropped.tif')
+        print(f"Saving image: {save_file}\n")
+        image.save_original_image_cropped(save_file)
+
+        if output_thumbnails:
+            save_thumbnails_path = os.path.join(output_directory, 'fiducial_thumbnails', image.name + '_thumbnail.tif')
+            image.save_fiducial_data_thumbnail(save_thumbnails_path)
+
+
+def process_image_set(images_directory, output_directory, x_crop, y_crop, output_thumbnails=False, n_threads=1):
     # load image paths
     image_filepaths = get_filepaths_from_directory(images_directory)
 
@@ -16,35 +50,14 @@ def process_image_set(images_directory, output_directory, x_crop, y_crop, output
     for fiducial_dir in fiducial_dirs:
         fiducial_templates.append(FiducialTemplate(fiducial_dir))
 
-    # start the processing
-    for image_path in tqdm(image_filepaths, desc="processing images"):
-        if '.tif' in image_path:
-            image = Image(image_path)
+    # Create a partial function with the other arguments pre-filled
+    process_func = partial(process_single_image, fiducial_templates=fiducial_templates, x_crop=x_crop,
+                           y_crop=y_crop, output_directory=output_directory, output_thumbnails=output_thumbnails)
 
-            # try all fiducial templates on the image
-            results = find_fiducials(image.image, fiducial_templates)
-
-            # get the best scoring result
-            best_matching_result = get_top_scores(results)
-            tqdm.write(f"\nBest matching result:\n{best_matching_result}\n")
-            # get the points for the fiducial markers
-            fiducial_points = get_fiducial_points(best_matching_result)
-            image.fiducial_points = fiducial_points
-
-            # get the principle point
-            image.principal_point = compute_principal_point(fiducial_points)
-            tqdm.write(f"{image.principal_point}\n")
-            # crop the image with the principal point as the center
-            image.crop_original(x_crop, y_crop)
-
-            save_file = os.path.join(output_directory, image.name + '_cropped.tif')
-            tqdm.write(f"Saving image: {save_file}\n")
-            image.save_original_image_cropped(save_file)
-
-            if output_thumbnails:
-                save_thumbnails_path = os.path.join(output_directory, 'fiducial_thumbnails',
-                                                    image.name + '_thumbnail.tif')
-                image.save_fiducial_data_thumbnail(save_thumbnails_path)
+    with Pool(n_threads) as pool:
+        with tqdm(total=len(image_filepaths), desc="Processing images") as pbar:
+            for _ in pool.imap_unordered(process_func, image_filepaths):
+                pbar.update()
 
 
 def get_filepaths_from_directory(directory):

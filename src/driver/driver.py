@@ -9,4 +9,10 @@ if __name__ == '__main__':
 
     y_max_crop = 14200  # max image size in the y
 
-    process_image_set(images_directory, output_directory, x_max_crop, y_max_crop, output_thumbnails=True)
+    process_image_set(images_directory,
+                      output_directory,
+                      x_max_crop,
+                      y_max_crop,
+                      output_thumbnails=True,
+                      n_threads=4
+                      )
